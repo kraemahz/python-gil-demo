@@ -3,33 +3,30 @@ import threading
 import time
 
 
-MUTEX = '__mutex__'
-
-
 class A:
 
     def __init__(self):
-        self.contents = {MUTEX: None}
+        self.contents = {i: None for i in range(100)}
 
     def add_to_list(self, key, value):
-        # Because of the GIL, a key in the dictionary can be treated like a mutex if we delete it
-        # and put it back when we're done.
         contents = self.contents
 
         while True:
             try:
-                del contents[MUTEX]
-                break
+                # Because of the GIL, a key in the dictionary can be treated like a mutex if we
+                # delete it and put it back when we're done. This works because only one thread
+                # will hold the GIL and be able to delete the mutex, all the others will block in
+                # the sleep loop until the thread puts it back
+                values = contents.pop(key)
             except KeyError:
                 time.sleep(0.001)
                 continue
 
-        if key not in self.contents:
-            contents[key] = [value]
-        else:
-            contents[key].append(value)
-
-        contents[MUTEX] = None
+            if values is None:
+                values = []
+            values.append(value)
+            contents[key] = values
+            break
 
 
 class T(threading.Thread):
